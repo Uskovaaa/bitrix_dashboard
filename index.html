@@ -241,23 +241,7 @@
     </div>
 
     <script>
-   
     const PROXY_URL = 'https://bitrix-dashboard.onrender.com/api/tasks';
-
-    // Внутри функции loadTasksForMonth замените fetch:
-    const response = await fetch(PROXY_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            filter: {
-            GROUP_ID: currentGroupId,        // ID вашей группы (в вашем коде это 45)
-            '>=DEADLINE': startOfMonth,     // Начало месяца
-            '<=DEADLINE': endOfMonth        // Конец месяца
-        },
-        select: ['*', 'RESPONSIBLE'],       // Запрашиваем данные об исполнителе
-        start: start
-        })
-    });
     const monthsNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
     const daysShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 
@@ -268,13 +252,10 @@
     let b24Events = {}; 
     const currentGroupId = 45; 
 
+    // Инициализация при загрузке страницы
     document.addEventListener("DOMContentLoaded", () => {
         initControls();
-        if(WEBHOOK_URL.includes('id/code/')) { // Исправил проверку ссылки
-            alert('ВНИМАНИЕ: Вставьте ссылку на ваш вебхук в переменную WEBHOOK_URL!');
-            return;
-        }
-        loadTasksForMonth(); // Вызываем без аргументов
+        loadTasksForMonth(); // Загружаем задачи
         
         document.getElementById('btn-prev').addEventListener('click', () => changeMonth(-1));
         document.getElementById('btn-next').addEventListener('click', () => changeMonth(1));
@@ -282,12 +263,9 @@
         document.getElementById('yearSelect').addEventListener('change', (e) => { currentYear = parseInt(e.target.value); loadTasksForMonth(); });
     });
 
-    // Стало:
-(async () => {
-    await loadTasksForMonth();
-
+    // Функция загрузки задач через ваш прокси
+    async function loadTasksForMonth() {
         showLoader(true);
-        // Используем глобальные currentYear и currentMonth
         let firstDay = new Date(currentYear, currentMonth, 1);
         let lastDay = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
 
@@ -296,7 +274,7 @@
         let endOfMonth = formatDate(lastDay);
 
         try {
-            const response = await fetch(WEBHOOK_URL + 'tasks.task.list.json', {
+            const response = await fetch(PROXY_URL, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -333,13 +311,15 @@
             });
 
             updateUserFilter();
-            renderAllCalendars(); // Исправили название функции
+            renderAllCalendars();
             showLoader(false);
         } catch (e) {
-            console.error("Ошибка загрузки:", e);
+            console.error("Ошибка загрузки данных через прокси:", e);
             showLoader(false);
         }
-    })();
+    }
+
+    // --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 
     function updateUserFilter() {
         const select = document.getElementById('userFilter');
