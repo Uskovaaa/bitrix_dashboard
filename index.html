@@ -282,7 +282,10 @@
         document.getElementById('yearSelect').addEventListener('change', (e) => { currentYear = parseInt(e.target.value); loadTasksForMonth(); });
     });
 
-    async function loadTasksForMonth() {
+    // Стало:
+(async () => {
+    await loadTasksForMonth();
+
         showLoader(true);
         // Используем глобальные currentYear и currentMonth
         let firstDay = new Date(currentYear, currentMonth, 1);
@@ -336,7 +339,7 @@
             console.error("Ошибка загрузки:", e);
             showLoader(false);
         }
-    }
+    })();
 
     function updateUserFilter() {
         const select = document.getElementById('userFilter');
