@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>График заседаний ФАС (Битрикс24)</title>
+    
+    <style>
+        /* === БАЗОВЫЕ СТИЛИ И СБРОС === */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Times New Roman', Times, serif;
+            background-color: #f4f5f7;
+            padding: 20px;
+            color: #333;
+        }
+
+        .calendar-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #fff;
+            padding: 30px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        /* === ПАНЕЛЬ УПРАВЛЕНИЯ === */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .controls select {
+            padding: 5px 10px;
+            font-size: 16px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* === ШАПКА === */
+        .header-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+        }
+        
+        .main-title {
+            text-align: center;
+            font-size: 48px;
+            font-weight: normal;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            flex-grow: 1;
+            padding-top: 20px;
+        }
+
+        .mini-calendar {
+            width: 180px;
+            font-family: Arial, sans-serif;
+            font-size: 10px;
+            text-align: center;
+        }
+        .mini-calendar .mini-title {
+            font-size: 14px;
+            margin-bottom: 5px;
+            font-family: 'Times New Roman', Times, serif;
+        }
+        .mini-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+        }
+        .mini-grid div { padding: 2px 0; }
+        .mini-grid .day-name { font-weight: bold; color: #555; }
+        .mini-grid .empty { color: transparent; }
+
+        /* === ОСНОВНАЯ СЕТКА КАЛЕНДАРЯ === */
+        .main-grid-wrapper {
+            position: relative;
+            margin-top: 10px;
+        }
+
+        .nav-arrow {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 40px;
+            height: 40px;
+            background-color: #888;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 10;
+            border: none;
+            transition: background 0.2s;
+        }
+        .nav-arrow:hover { background-color: #555; }
+        .nav-arrow.prev { left: -50px; }
+        .nav-arrow.next { right: -50px; }
+
+        .calendar-table {
+            width: 100%;
+            border-collapse: collapse;
+            table-layout: fixed;
+            font-family: Arial, sans-serif;
+        }
+        .calendar-table th {
+            border: 1px solid #333;
+            padding: 8px;
+            font-weight: normal;
+            font-size: 14px;
+            text-align: center;
+            background-color: #fff;
+        }
+        .calendar-table td {
+            border: 1px solid #333;
+            height: 120px;
+            vertical-align: top;
+            padding: 8px;
+            position: relative;
+        }
+        .calendar-table td.empty { background-color: #f9f9f9; }
+        
+        .day-number {
+            font-size: 20px;
+            font-family: 'Times New Roman', Times, serif;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        /* === СТИЛИ ЗАДАЧ БИТРИКС24 === */
+        .event-card {
+            font-size: 11px;
+            line-height: 1.3;
+            margin-top: 4px;
+            padding: 4px 6px;
+            background-color: #fff0f0; 
+            border-left: 3px solid #e53935;
+            border-radius: 0 3px 3px 0;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .event-card:hover {
+            background-color: #ffdada;
+        }
+        .event-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .event-card .time { font-weight: bold; color: #e53935; }
+        .event-card .responsible { 
+            font-style: italic; 
+            color: #666; 
+            font-size: 10px; 
+            max-width: 80px; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+            text-align: right;
+        }
+        .event-card .title { 
+            font-weight: normal; 
+            white-space: nowrap; 
+            overflow: hidden; 
+            text-overflow: ellipsis; 
+        }
+
+        .highlight-red {
+            border: 3px solid #e53935 !important;
+        }
+        .calendar-table td.today {
+            background-color: #f0f8ff;
+            box-shadow: inset 0 0 0 2px #0054a5;
+        }
+        .calendar-table td.today .day-number {
+            color: #0054a5;
+            font-weight: bold;
+        }
+
+        /* Лоадер при загрузке данных */
+        #loader {
+            display: none;
+            position: absolute;
+            top: 10px; right: 10px;
+            background: #ffeebf;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-family: Arial;
+            font-size: 12px;
+            color: #d32f2f;
+            font-weight: bold;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="calendar-container">
+        <div id="loader">Загрузка данных из Битрикс24...</div>
+        
+        <div class="controls">
+            <select id="monthSelect"></select>
+            <select id="yearSelect"></select>
+        </div>
+
+        <div class="header-area">
+            <div id="mini-calendar-prev" class="mini-calendar"></div>
+            <div id="main-title" class="main-title">ИЮНЬ 2025</div>
+            <div id="mini-calendar-next" class="mini-calendar"></div>
+        </div>
+
+        <div class="main-grid-wrapper">
+            <button class="nav-arrow prev" id="btn-prev">&#10094;</button>
+            <button class="nav-arrow next" id="btn-next">&#10095;</button>
+
+            <select id="userFilter" onchange="renderAllCalendars()"></select>
+
+            <table class="calendar-table">
+                <thead>
+                    <tr>
+                        <th>Понедельник</th><th>Вторник</th><th>Среда</th><th>Четверг</th>
+                        <th>Пятница</th><th>Суббота</th><th>Воскресенье</th>
+                    </tr>
+                </thead>
+                <tbody id="calendar-body"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+   
+    const PROXY_URL = 'https://bitrix-dashboard.onrender.com/api/tasks';
+
+    // Внутри функции loadTasksForMonth замените fetch:
+    const response = await fetch(PROXY_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            filter: {
+            GROUP_ID: currentGroupId,        // ID вашей группы (в вашем коде это 45)
+            '>=DEADLINE': startOfMonth,     // Начало месяца
+            '<=DEADLINE': endOfMonth        // Конец месяца
+        },
+        select: ['*', 'RESPONSIBLE'],       // Запрашиваем данные об исполнителе
+        start: start
+        })
+    });
+    const monthsNames = ['Январь', 'Февраль', 'Март', 'Апрель', 'Май', 'Июнь', 'Июль', 'Август', 'Сентябрь', 'Октябрь', 'Ноябрь', 'Декабрь'];
+    const daysShort = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
+
+    let currentDate = new Date();
+    let currentMonth = currentDate.getMonth();
+    let currentYear = currentDate.getFullYear();
+    const realToday = new Date();
+    let b24Events = {}; 
+    const currentGroupId = 45; 
+
+    document.addEventListener("DOMContentLoaded", () => {
+        initControls();
+        if(WEBHOOK_URL.includes('id/code/')) { // Исправил проверку ссылки
+            alert('ВНИМАНИЕ: Вставьте ссылку на ваш вебхук в переменную WEBHOOK_URL!');
+            return;
+        }
+        loadTasksForMonth(); // Вызываем без аргументов
+        
+        document.getElementById('btn-prev').addEventListener('click', () => changeMonth(-1));
+        document.getElementById('btn-next').addEventListener('click', () => changeMonth(1));
+        document.getElementById('monthSelect').addEventListener('change', (e) => { currentMonth = parseInt(e.target.value); loadTasksForMonth(); });
+        document.getElementById('yearSelect').addEventListener('change', (e) => { currentYear = parseInt(e.target.value); loadTasksForMonth(); });
+    });
+
+    async function loadTasksForMonth() {
+        showLoader(true);
+        // Используем глобальные currentYear и currentMonth
+        let firstDay = new Date(currentYear, currentMonth, 1);
+        let lastDay = new Date(currentYear, currentMonth + 1, 0, 23, 59, 59);
+
+        const formatDate = (date) => date.toISOString().split('.')[0] + '+05:00'; 
+        let startOfMonth = formatDate(firstDay);
+        let endOfMonth = formatDate(lastDay);
+
+        try {
+            const response = await fetch(WEBHOOK_URL + 'tasks.task.list.json', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filter: {
+                        GROUP_ID: currentGroupId,
+                        '>=DEADLINE': startOfMonth,
+                        '<=DEADLINE': endOfMonth
+                    },
+                    select: ['*', 'RESPONSIBLE'],
+                    start: 0
+                })
+            });
+
+            const data = await response.json();
+            const allTasks = data.result ? data.result.tasks : [];
+
+            b24Events = {}; 
+            allTasks.forEach(task => {
+                if (task.deadline) {
+                    let d = new Date(task.deadline);
+                    let key = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                    
+                    if (!b24Events[key]) b24Events[key] = [];
+                    let respName = (task.responsible && task.responsible.name) ? task.responsible.name : '---';
+
+                    b24Events[key].push({
+                        id: task.id,
+                        time: `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`,
+                        title: task.title,
+                        responsible: respName,
+                        link: `https://torgi-crm.online/workgroups/group/${currentGroupId}/tasks/task/view/${task.id}/`
+                    });
+                }
+            });
+
+            updateUserFilter();
+            renderAllCalendars(); // Исправили название функции
+            showLoader(false);
+        } catch (e) {
+            console.error("Ошибка загрузки:", e);
+            showLoader(false);
+        }
+    }
+
+    function updateUserFilter() {
+        const select = document.getElementById('userFilter');
+        if (!select) return;
+        const currentSelection = select.value;
+        select.innerHTML = '<option value="all">Все исполнители</option>';
+        
+        const users = new Set();
+        for (let dayKey in b24Events) {
+            b24Events[dayKey].forEach(ev => {
+                if (ev.responsible && ev.responsible !== '---') users.add(ev.responsible);
+            });
+        }
+        
+        Array.from(users).sort().forEach(user => {
+            let opt = document.createElement('option');
+            opt.value = user; opt.innerHTML = user;
+            if (user === currentSelection) opt.selected = true;
+            select.appendChild(opt);
+        });
+    }
+
+    function showLoader(show) { document.getElementById('loader').style.display = show ? 'block' : 'none'; }
+
+    function initControls() {
+        const monthSelect = document.getElementById('monthSelect');
+        const yearSelect = document.getElementById('yearSelect');
+        monthsNames.forEach((name, index) => {
+            let option = document.createElement('option');
+            option.value = index; option.text = name; monthSelect.appendChild(option);
+        });
+        const currentY = new Date().getFullYear();
+        for (let y = currentY - 2; y <= currentY + 2; y++) {
+            let option = document.createElement('option');
+            option.value = y; option.text = y; yearSelect.appendChild(option);
+        }
+    }
+
+    function renderAllCalendars() {
+        const filterValue = document.getElementById('userFilter').value;
+        document.getElementById('monthSelect').value = currentMonth;
+        document.getElementById('yearSelect').value = currentYear;
+        document.getElementById('main-title').innerText = `${monthsNames[currentMonth]} ${currentYear}`;
+        renderMainGrid(currentYear, currentMonth, filterValue);
+        
+        let prevDate = new Date(currentYear, currentMonth - 1, 1);
+        renderMiniCalendar('mini-calendar-prev', prevDate.getFullYear(), prevDate.getMonth());
+        let nextDate = new Date(currentYear, currentMonth + 1, 1);
+        renderMiniCalendar('mini-calendar-next', nextDate.getFullYear(), nextDate.getMonth());
+    }
+
+    function changeMonth(direction) {
+        currentMonth += direction;
+        if (currentMonth < 0) { currentMonth = 11; currentYear--; } 
+        else if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        loadTasksForMonth();
+    }
+
+    function getStartingDay(year, month) {
+        let day = new Date(year, month, 1).getDay(); return day === 0 ? 6 : day - 1; 
+    }
+    function daysInMonth(year, month) { return new Date(year, month + 1, 0).getDate(); }
+
+    function renderMainGrid(year, month, filterValue = 'all') {
+        const tbody = document.getElementById('calendar-body');
+        tbody.innerHTML = '';
+        const totalDays = daysInMonth(year, month);
+        const startDay = getStartingDay(year, month);
+        let date = 1;
+
+        for (let i = 0; i < 6; i++) {
+            let row = document.createElement('tr');
+            let rowHasDays = false;
+            for (let j = 0; j < 7; j++) {
+                let cell = document.createElement('td');
+                if (i === 0 && j < startDay) cell.classList.add('empty');
+                else if (date > totalDays) cell.classList.add('empty');
+                else {
+                    rowHasDays = true;
+                    let dayKey = `${year}-${month}-${date}`;
+                    let dayNumHTML = `<span class="day-number">${date}</span>`;
+                    let eventsHTML = '';
+                    if (b24Events[dayKey]) {
+                        b24Events[dayKey].forEach(ev => {
+                            if (filterValue === 'all' || ev.responsible === filterValue) {
+                                cell.classList.add('highlight-red');
+                                eventsHTML += `<div class="event-card" onclick="window.open('${ev.link}', '_blank')">
+                                    <div class="event-header"><span class="time">${ev.time}</span><span class="responsible">${ev.responsible}</span></div>
+                                    <span class="title">${ev.title}</span></div>`;
+                            }
+                        });
+                    }
+                    cell.innerHTML = dayNumHTML + eventsHTML;
+                    date++;
+                }
+                row.appendChild(cell);
+            }
+            if (rowHasDays) tbody.appendChild(row);
+            if (date > totalDays) break;
+        }
+    }
+
+    function renderMiniCalendar(containerId, year, month) {
+        const container = document.getElementById(containerId);
+        const totalDays = daysInMonth(year, month);
+        const startDay = getStartingDay(year, month);
+        let html = `<div class="mini-title">${monthsNames[month]} ${year}</div><div class="mini-grid">`;
+        daysShort.forEach(d => html += `<div class="day-name">${d}</div>`);
+        for(let i=0; i<startDay; i++) html += `<div class="empty">-</div>`;
+        for(let d=1; d<=totalDays; d++) html += `<div>${d}</div>`;
+        html += `</div>`;
+        container.innerHTML = html;
+    }
+</script>
+</body>
+</html>
